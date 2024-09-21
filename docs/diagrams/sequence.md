@@ -1,23 +1,8 @@
-# Cenário Descrito
+# Diagrama de Sequência Atualizado
 
-1. **Ator**: Um ator (usuário ou sistema externo) inicia o processo solicitando um agendamento de ocupação para um tipo específico de carga, especificando a duração desejada.
+## Propósito
 
-2. **Sistema de Agendamento**: Recebe a solicitação, valida as capacidades e tipos de slots disponíveis e utiliza mecanismos de sincronização (como locks) para gerenciar o acesso concorrente aos recursos.
-
-3. **Storage**: Cada armazenamento possui uma capacidade total e é dividido em slots de tipos variados. O sistema de agendamento obtém um lock no storage para o tipo de carga solicitado, verifica a disponibilidade dos slots e agenda a ocupação se possível.
-
-4. **Concorrência**: O sistema gerencia solicitações concorrentes utilizando locks para evitar condições de corrida. Em caso de concorrência, o sistema pode resolver conflitos baseando-se em prioridades ou colocando as solicitações em uma fila de espera, garantindo que a capacidade do storage não seja ultrapassada.
-
-5. **Feedback Detalhado ao Solicitante**: O sistema retorna ao solicitante uma confirmação detalhada do agendamento. Se o agendamento for recusado devido à falta de slots disponíveis, o sistema fornece informações adicionais, como o tempo estimado de espera ou alternativas disponíveis.
-
-6. **Atividades Internas do Sistema**:
-   - **Registro do Agendamento**: O sistema registra o agendamento na base de dados para manter um histórico e facilitar a gestão futura.
-   - **Notificações**: O sistema utiliza um serviço de notificações para enviar confirmações ou atualizações ao solicitante sobre o status do agendamento.
-   - **Atualização de Registros durante a Rotação**: Durante a rotação de ocupação, o sistema atualiza os registros na base de dados para refletir a liberação dos slots e pode notificar os interessados sobre a disponibilidade dos slots liberados.
-
-7. **Rotação de Ocupação**: As ocupações têm um tempo de duração definido. Um processo assíncrono no sistema de agendamento verifica periodicamente os slots para identificar aqueles cuja ocupação expirou. O sistema obtém um lock no storage para evitar conflitos durante a rotação. Quando um slot expirado é encontrado, o sistema rotaciona ou libera o slot, permitindo que novas alocações sejam feitas.
-
-8. **Escalabilidade e Extensibilidade**: O sistema suporta múltiplos tipos de carga com regras e capacidades diferentes. Ao verificar a disponibilidade, o sistema considera as características específicas do tipo de carga solicitado.
+O objetivo deste documento é apresentar um diagrama de sequência atualizado que incorpora todas as melhorias realizadas nos casos de uso do sistema de agendamento. O diagrama detalha as interações entre os atores e os componentes do sistema, refletindo funcionalidades como autenticação, gerenciamento de prioridades, lista de espera, liberação direta de slots pelo administrador, integração com serviços externos, concorrência, paralelismo e estratégias de alocação. A intenção é fornecer uma visão clara e estruturada de como o sistema opera, garantindo funcionalidade, confiabilidade, resiliência e observabilidade.
 
 ## Diagrama de Sequência em PlantUML
 
@@ -28,104 +13,217 @@
 !define STORAGE participant Storage
 !define BASEDADOS participant BaseDeDados
 !define NOTIFICACAO participant NotificacaoService
+!define AUTENTICACAO participant AutenticacaoService
+!define CALENDARIO participant CalendarioExterno
+!define ADMIN actor Administrador
 
 ATOR Solicitante
+ADMIN
 SISTEMA
+AUTENTICACAO
 STORAGE
 BASEDADOS
 NOTIFICACAO
+CALENDARIO
 
-Solicitante -> SistemaAgendamento: Solicitar Agendamento(TipoCarga, TempoDuracao)
+Solicitante -> AutenticacaoService: Login(Credenciais)
+AutenticacaoService --> Solicitante: Autenticação Bem-sucedida
+
+Solicitante -> SistemaAgendamento: Solicitar Agendamento(TipoCarga, TempoDuracao, Prioridade)
 activate SistemaAgendamento
 
+SistemaAgendamento -> AutenticacaoService: Verificar Sessão
+AutenticacaoService --> SistemaAgendamento: Sessão Válida
+
 SistemaAgendamento -> Storage: Obter Lock(TipoCarga)
-Storage -> SistemaAgendamento: Lock Obtido
+Storage --> SistemaAgendamento: Lock Obtido
 
-SistemaAgendamento -> Storage: Verificar Disponibilidade(TipoCarga)
+SistemaAgendamento -> Storage: Verificar Disponibilidade(TipoCarga, Prioridade)
 alt Slots Disponíveis
-    Storage -> SistemaAgendamento: Confirmar Disponibilidade
+    Storage --> SistemaAgendamento: Slots Disponíveis
+    SistemaAgendamento -> Storage: Alocar Slot(TipoCarga, TempoDuracao)
+    Storage --> SistemaAgendamento: Slot Alocado
 
-    SistemaAgendamento -> SistemaAgendamento: Alocar Slot(TipoCarga, TempoDuracao)
-    SistemaAgendamento -> Storage: Atualizar Slot(TipoCarga, Ocupado, TempoDuracao)
-    Storage -> SistemaAgendamento: Confirmação de Atualização
-
-    SistemaAgendamento -> BaseDeDados: Registrar Agendamento(TipoCarga, TempoDuracao)
-    SistemaAgendamento -> NotificacaoService: Enviar Confirmação ao Solicitante
-
-    SistemaAgendamento -> Solicitante: Agendamento Confirmado(Sucesso)
+    SistemaAgendamento -> BaseDeDados: Registrar Agendamento
+    SistemaAgendamento -> CalendarioExterno: Sincronizar Agendamento(Solicitante)
+    SistemaAgendamento -> NotificacaoService: Enviar Confirmação
+    SistemaAgendamento --> Solicitante: Agendamento Confirmado
 else Slots Indisponíveis
-    Storage -> SistemaAgendamento: Slots Indisponíveis
-    SistemaAgendamento -> Solicitante: Agendamento Recusado(Falta de Slots, Tempo de Espera Estimado)
+    Storage --> SistemaAgendamento: Slots Indisponíveis
+    SistemaAgendamento -> BaseDeDados: Adicionar à Lista de Espera(Solicitante, Prioridade)
+    SistemaAgendamento -> NotificacaoService: Notificar Posição na Fila
+    SistemaAgendamento --> Solicitante: Adicionado à Lista de Espera
 end
 
 SistemaAgendamento -> Storage: Liberar Lock(TipoCarga)
 deactivate SistemaAgendamento
 
-== Rotação de Ocupação ==
+Administrador -> AutenticacaoService: Login(Credenciais)
+AutenticacaoService --> Administrador: Autenticação Bem-sucedida
 
-loop Verificar Slots Expirados
+Administrador -> SistemaAgendamento: Liberar Slot(SlotID)
+activate SistemaAgendamento
+
+SistemaAgendamento -> AutenticacaoService: Verificar Sessão
+AutenticacaoService --> SistemaAgendamento: Sessão Válida
+
+SistemaAgendamento -> Storage: Obter Lock(SlotID)
+Storage --> SistemaAgendamento: Lock Obtido
+
+SistemaAgendamento -> Storage: Liberar Slot(SlotID)
+Storage --> SistemaAgendamento: Slot Liberado
+
+SistemaAgendamento -> BaseDeDados: Atualizar Registro de Slot
+SistemaAgendamento -> NotificacaoService: Notificar Disponibilidade
+SistemaAgendamento --> Administrador: Slot Liberado com Sucesso
+
+SistemaAgendamento -> Storage: Liberar Lock(SlotID)
+deactivate SistemaAgendamento
+
+loop A cada intervalo de tempo
     SistemaAgendamento -> Storage: Obter Lock(TipoCarga)
-    Storage -> SistemaAgendamento: Lock Obtido
-    SistemaAgendamento -> Storage: Verificar Expiração(TipoCarga)
-    alt Slots Expirados Encontrados
-        Storage -> SistemaAgendamento: Slots Expirados
-        SistemaAgendamento -> Storage: Rotacionar Slot(TipoCarga)
-        Storage -> SistemaAgendamento: Slot Rotacionado
+    Storage --> SistemaAgendamento: Lock Obtido
 
-        SistemaAgendamento -> BaseDeDados: Atualizar Registro de Slot(TipoCarga)
-        SistemaAgendamento -> NotificacaoService: Notificar Disponibilidade de Slot
+    SistemaAgendamento -> Storage: Verificar Slots Expirados
+    alt Slots Expirados Encontrados
+        Storage --> SistemaAgendamento: Lista de Slots Expirados
+        SistemaAgendamento -> Storage: Liberar Slots Expirados
+        Storage --> SistemaAgendamento: Slots Liberados
+
+        SistemaAgendamento -> BaseDeDados: Atualizar Registros de Slots
+        SistemaAgendamento -> NotificacaoService: Notificar Lista de Espera
     else Nenhum Slot Expirado
-        note right: Continuar Verificação
+        note over SistemaAgendamento: Nenhuma ação necessária
     end
+
     SistemaAgendamento -> Storage: Liberar Lock(TipoCarga)
 end
+
+Solicitante -> SistemaAgendamento: Configurar Notificações(Preferências)
+SistemaAgendamento -> NotificacaoService: Atualizar Preferências
+
+Solicitante -> SistemaAgendamento: Fornecer Feedback(Comentários)
+SistemaAgendamento -> BaseDeDados: Registrar Feedback
+
+Administrador -> SistemaAgendamento: Visualizar Relatórios
+SistemaAgendamento -> BaseDeDados: Gerar Relatório
+SistemaAgendamento --> Administrador: Relatório Disponível
+
+SistemaAgendamento -> AutenticacaoService: Verificar Permissões(Usuário)
+AutenticacaoService --> SistemaAgendamento: Permissão Concedida/Negada
 
 @enduml
 ```
 
 ## Explicação do Diagrama
 
-1. **Solicitação de Agendamento**:
-   - O ator inicia o processo solicitando um agendamento para um tipo específico de carga, especificando a duração desejada.
+### **Atores**
 
-2. **Obtenção de Lock e Verificação de Disponibilidade**:
-   - O **Sistema de Agendamento** obtém um lock no **Storage** para o tipo de carga solicitado, gerenciando a concorrência e evitando condições de corrida.
-   - Com o lock obtido, o sistema consulta o storage para verificar se há slots disponíveis para o tipo de carga solicitado.
+- **Solicitante**: Usuário que deseja realizar e gerenciar agendamentos.
+- **Administrador**: Usuário com privilégios para gerenciar o sistema, incluindo a liberação direta de slots e a visualização de relatórios.
 
-3. **Alocação e Gerenciamento de Concorrência**:
-   - **Slots Disponíveis**:
-     - Se slots estiverem disponíveis, o sistema aloca o slot e atualiza o status no storage.
-     - Registra o agendamento na base de dados para manter um histórico e facilitar a gestão futura.
-     - Envia uma confirmação ao solicitante através do serviço de notificações.
-     - Libera o lock no storage após a conclusão do processo.
-   - **Slots Indisponíveis**:
-     - Se não houver slots disponíveis, o sistema informa o solicitante e pode fornecer um tempo estimado de espera ou alternativas.
-     - Libera o lock no storage após informar o solicitante.
+### **Componentes do Sistema**
 
-4. **Confirmação e Notificação ao Solicitante**:
-   - O sistema retorna ao solicitante uma confirmação detalhada do agendamento ou informações sobre a indisponibilidade.
-   - Utiliza o serviço de notificações para enviar atualizações sobre o status do agendamento.
+- **SistemaAgendamento**: Serviço central que coordena as operações de agendamento.
+- **AutenticacaoService**: Responsável pela autenticação e autorização dos usuários.
+- **Storage**: Gerencia os slots disponíveis para agendamento.
+- **BaseDeDados**: Armazena dados persistentes, como agendamentos, usuários e feedback.
+- **NotificacaoService**: Envia notificações aos usuários através de vários canais.
+- **CalendarioExterno**: Integração com serviços de calendário para sincronização de agendamentos.
 
-5. **Rotação de Ocupação**:
-   - Um processo assíncrono (loop) no sistema de agendamento verifica periodicamente os slots para identificar aqueles cuja ocupação expirou.
-   - O sistema obtém um lock no storage para o tipo de carga antes de modificar o status dos slots, garantindo consistência e evitando conflitos com outros processos.
-   - **Slots Expirados Encontrados**:
-     - Rotaciona ou libera o slot, permitindo que novas alocações sejam feitas.
-     - Atualiza os registros na base de dados para refletir a liberação dos slots.
-     - Notifica os interessados sobre a disponibilidade dos slots liberados.
-     - Libera o lock no storage após a conclusão do processo.
-   - **Nenhum Slot Expirado**:
-     - Se nenhum slot expirado for encontrado, o sistema libera o lock e continua a verificação em intervalos regulares.
+### **Casos de Uso para os Atores**
 
-6. **Atividades Internas do Sistema**:
-   - **Registro do Agendamento**:
-     - Registra detalhes do agendamento na base de dados, incluindo o tipo de carga, duração e informações do solicitante.
-   - **Atualização de Registros durante a Rotação**:
-     - Atualiza a base de dados para refletir a liberação e disponibilidade dos slots após a rotação.
-   - **Notificações**:
-     - Envia confirmações, lembretes e atualizações sobre o status do agendamento ao solicitante.
-     - Notifica interessados sobre a disponibilidade de slots após a rotação.
+#### **Solicitante**
 
-7. **Escalabilidade e Extensibilidade**:
-   - Suporta múltiplos tipos de carga com regras e capacidades diferentes.
-   - Ao verificar a disponibilidade, considera as características específicas do tipo de carga solicitado, garantindo que as regras de negócios sejam respeitadas.
+1. **Autenticar-se no Sistema**
+   - Realiza login utilizando credenciais válidas.
+   - O sistema autentica o usuário e estabelece uma sessão segura.
+
+2. **Solicitar Agendamento**
+   - Envia uma solicitação especificando tipo de carga, duração e prioridade.
+   - O sistema verifica disponibilidade e aloca o slot ou adiciona o solicitante à lista de espera.
+   - Recebe confirmação do agendamento ou posição na lista de espera.
+
+3. **Configurar Notificações**
+   - Define preferências para recebimento de notificações (email, SMS, push).
+
+4. **Fornecer Feedback**
+   - Envia comentários ou sugestões sobre o sistema ou agendamentos específicos.
+
+#### **Administrador**
+
+1. **Autenticar-se no Sistema**
+   - Realiza login com credenciais administrativas.
+   - O sistema autentica o administrador e estabelece uma sessão segura.
+
+2. **Liberar Slot Diretamente**
+   - Libera slots específicos, mesmo que estejam ocupados.
+   - Ação notifica automaticamente os solicitantes na lista de espera.
+
+3. **Visualizar Relatórios**
+   - Acessa relatórios detalhados sobre o desempenho do sistema, utilização de slots e outros indicadores.
+
+### **Relações**
+
+- **Associações**:
+  - **Solicitante** e **Administrador** interagem com o **SistemaAgendamento** para realizar suas respectivas operações.
+  - **SistemaAgendamento** interage com componentes como **AutenticacaoService**, **Storage**, **BaseDeDados**, **NotificacaoService** e **CalendarioExterno** para executar as funcionalidades.
+
+- **Dependências**:
+  - **SistemaAgendamento** depende do **AutenticacaoService** para autenticação e autorização.
+  - **SistemaAgendamento** utiliza o **Storage** para gerenciar disponibilidade de slots.
+  - **SistemaAgendamento** interage com o **BaseDeDados** para persistência de informações.
+  - **NotificacaoService** é utilizado para enviar comunicações aos usuários.
+  - **CalendarioExterno** é integrado para sincronização de agendamentos.
+
+### **Notas Adicionais**
+
+- **Concorrência e Locks**:
+  - Locks são utilizados ao interagir com o **Storage** para evitar condições de corrida e garantir a consistência dos dados em operações concorrentes.
+
+- **Gerenciamento de Prioridades**:
+  - Solicitações de agendamento consideram a prioridade do solicitante ao verificar disponibilidade e ao adicionar à lista de espera.
+
+- **Rotação de Ocupação**:
+  - Processo automatizado que verifica periodicamente slots expirados, libera-os e notifica os solicitantes na lista de espera.
+
+- **Integração com Serviços Externos**:
+  - **CalendarioExterno**: Permite aos solicitantes sincronizar agendamentos com seus calendários pessoais.
+  - **NotificacaoService**: Suporta múltiplos canais de comunicação para manter os usuários informados.
+
+- **Segurança e Conformidade**:
+  - O sistema realiza verificações de permissão antes de executar operações sensíveis.
+  - Todas as transações são realizadas de forma segura e em conformidade com regulamentações como a LGPD.
+
+- **Observabilidade**:
+  - Logs detalhados e monitoramento ativo permitem que os administradores acompanhem o desempenho e identifiquem possíveis problemas.
+
+## Considerações Finais
+
+O diagrama de sequência apresenta uma visão abrangente das interações entre os atores e os componentes do sistema, refletindo as melhorias incorporadas nos casos de uso. Ele destaca como o sistema lida com autenticação, gerenciamento de prioridades, lista de espera, liberação de slots, integração com serviços externos e outras funcionalidades críticas para o funcionamento eficiente e confiável do sistema de agendamento.
+
+**Próximos Passos**:
+
+1. **Especificação Detalhada dos Casos de Uso**:
+   - Elaborar documentos detalhados para cada caso de uso, incluindo fluxos principais, alternativos e de exceção.
+
+2. **Desenvolvimento de Diagramas Complementares**:
+   - **Diagrama de Atividades**: Para visualizar processos complexos e fluxos de trabalho.
+   - **Diagrama de Estados**: Para compreender o ciclo de vida dos slots e agendamentos.
+
+3. **Validação com Stakeholders**:
+   - Revisar o diagrama e as especificações com as partes interessadas para garantir que todos os requisitos estão sendo atendidos.
+
+4. **Planejamento de Implementação**:
+   - Definir prioridades para o desenvolvimento das funcionalidades.
+   - Estabelecer um cronograma realista para a implementação.
+
+5. **Testes e Qualidade**:
+   - Planejar e executar testes unitários, de integração e de carga para assegurar a qualidade do sistema.
+
+6. **Monitoramento e Observabilidade**:
+   - Implementar ferramentas de monitoramento para acompanhar o desempenho do sistema em tempo real.
+
+7. **Documentação e Treinamento**:
+   - Desenvolver materiais de treinamento para usuários e administradores.
+   - Manter a documentação atualizada para facilitar a manutenção e futuras expansões.
