@@ -2,13 +2,13 @@
 
 ## Propósito
 
-Este documento tem como objetivo detalhar os casos de uso do **Sistema de Agendamento**, descrevendo as interações entre os atores (usuários) e o sistema, bem como as integrações com serviços externos. O documento serve como referência para entender o funcionamento do sistema, seus componentes principais e os fluxos de operações.
+Este documento tem como objetivo detalhar os diagramas de sequência, atividade, estado e classe necessários para representar completamente o **Sistema de Agendamento**, conforme definido pelos casos de uso do projeto. Ele serve como um guia para desenvolvedores, analistas e outros stakeholders envolvidos no projeto, fornecendo uma compreensão clara da dinâmica e da estrutura do sistema.
 
 ## Visão Geral do Sistema
 
-O **Sistema de Agendamento** permite que solicitantes registrem, visualizem, cancelem e reagendem agendamentos de forma eficiente. Administradores têm controle sobre a gestão dos agendamentos, configurações do sistema e monitoramento. O sistema integra-se com serviços externos para autenticação, notificações e sincronização com calendários externos.
+O **Sistema de Agendamento** permite que usuários (solicitantes) registrem-se, façam login, solicitem agendamentos, visualizem, cancelem ou reagendem seus agendamentos. Os administradores gerenciam agendamentos, usuários, configurações do sistema e monitoram o desempenho. O sistema integra-se com serviços externos, como sistemas de autenticação, notificações e calendários externos, para fornecer uma experiência completa aos usuários.
 
-## Diagrama de Casos de Uso (UML)
+## Diagrama de Casos de Uso (PlantUML ou UML)
 
 ```plantuml
 @startuml
@@ -108,11 +108,14 @@ cloud "Serviços Externos" {
 ## Atores
 
 - **Internos**:
-  - **Solicitante**: Usuário que deseja agendar, visualizar, cancelar ou reagendar um agendamento. Pode configurar notificações e fornecer feedback.
-  - **Administrador**: Responsável pela gestão do sistema, incluindo agendamentos, usuários, configurações e monitoramento.
+  - **Solicitante**: Usuário que interage com o sistema para realizar agendamentos, visualizar, cancelar ou reagendar, além de configurar notificações e fornecer feedback.
+  - **Administrador**: Usuário com privilégios elevados que gerencia agendamentos, usuários, configurações do sistema e monitora o sistema.
 
 - **Externos**:
-  - **Sistema Externo**: Inclui serviços como Sistema de Notificações, Sistema de Autenticação e Calendário Externo.
+  - **Sistema Externo**: Inclui serviços como:
+    - **Sistema de Autenticação**: Serviço utilizado para autenticar usuários.
+    - **Sistema de Notificações**: Serviço responsável pelo envio de notificações aos usuários.
+    - **Calendário Externo**: Serviços de calendário, como Google Calendar ou Microsoft Outlook, para integração de agendamentos.
 
 ## Casos de Uso
 
@@ -121,38 +124,40 @@ cloud "Serviços Externos" {
 - **Descrição**: Permite que um novo solicitante crie uma conta no sistema.
 - **Pré-condições**: Nenhuma.
 - **Fluxo Principal**:
-  1. O solicitante acessa a opção de registro.
-  2. Preenche as informações necessárias (nome, e-mail, senha, etc.).
+  1. O solicitante acessa a página de registro.
+  2. Insere os dados necessários (nome, e-mail, senha, etc.).
   3. Submete o formulário de registro.
-  4. O sistema verifica os dados e cria a conta.
-  5. O solicitante recebe uma confirmação do registro.
+  4. O sistema valida os dados e cria uma nova conta.
+  5. O solicitante recebe uma confirmação de registro via e-mail.
 - **Fluxos Alternativos**:
-  - Se o e-mail já estiver em uso, o sistema notifica o solicitante.
-- **Dependências**: Sistema de Autenticação.
+  - Se o e-mail já estiver registrado, o sistema notifica o solicitante e solicita a utilização de outro e-mail.
+- **Dependências**: Sistema de Autenticação, Sistema de Notificações.
 
 ### Login
 
-- **Descrição**: Autenticação de usuários (solicitante ou administrador) no sistema.
-- **Pré-condições**: Ter uma conta registrada.
+- **Descrição**: Permite que o solicitante ou administrador autentique-se no sistema.
+- **Pré-condições**: O usuário deve ter uma conta registrada.
 - **Fluxo Principal**:
-  1. O usuário insere e-mail e senha.
-  2. O sistema verifica as credenciais com o Sistema de Autenticação.
-  3. Se válidas, o usuário é autenticado e direcionado ao dashboard.
+  1. O usuário acessa a página de login.
+  2. Insere suas credenciais (e-mail e senha).
+  3. O sistema verifica as credenciais com o Sistema de Autenticação.
+  4. Se válidas, o usuário é autenticado e redirecionado ao painel principal.
 - **Fluxos Alternativos**:
   - **Falha na Autenticação**:
-    - O sistema notifica o usuário sobre credenciais inválidas.
-    - Permite tentar novamente ou recuperar senha.
+    - Se as credenciais forem inválidas, o sistema notifica o usuário e permite tentar novamente.
+    - O usuário pode optar por recuperar a senha.
 - **Dependências**: Sistema de Autenticação.
 
 ### Recuperar Senha
 
-- **Descrição**: Permite que o usuário recupere a senha esquecida.
-- **Pré-condições**: O usuário deve ter um e-mail válido registrado.
+- **Descrição**: Permite que o usuário recupere sua senha caso a tenha esquecido.
+- **Pré-condições**: O usuário deve ter uma conta registrada com um e-mail válido.
 - **Fluxo Principal**:
-  1. O usuário solicita a recuperação de senha.
-  2. O sistema envia um e-mail com instruções de redefinição.
+  1. O usuário acessa a opção de recuperação de senha.
+  2. Insere seu e-mail cadastrado.
+  3. O sistema envia um e-mail com instruções para redefinir a senha.
 - **Fluxos Alternativos**:
-  - Se o e-mail não estiver registrado, o sistema notifica o usuário.
+  - Se o e-mail não estiver cadastrado, o sistema notifica o usuário.
 - **Dependências**: Sistema de Autenticação, Sistema de Notificações.
 
 ### Solicitar Agendamento
@@ -160,17 +165,17 @@ cloud "Serviços Externos" {
 - **Descrição**: Permite que o solicitante solicite um novo agendamento.
 - **Pré-condições**: Usuário autenticado.
 - **Fluxo Principal**:
-  1. O solicitante seleciona a opção de agendamento.
-  2. **Verificar Disponibilidade**: O sistema apresenta os slots disponíveis.
+  1. O solicitante seleciona a opção de solicitar agendamento.
+  2. **Verificar Disponibilidade**: O sistema apresenta os slots de tempo disponíveis.
   3. O solicitante escolhe um slot desejado.
   4. **Alocar Slot**: O sistema reserva temporariamente o slot.
-  5. **Registrar Agendamento**: O sistema confirma a reserva.
-  6. **Enviar Confirmação**: O sistema envia confirmação ao solicitante.
+  5. **Registrar Agendamento**: O sistema confirma o agendamento.
+  6. **Enviar Confirmação**: O sistema envia uma confirmação via notificação.
 - **Fluxos Alternativos**:
   - **Adicionar à Lista de Espera**:
     - Se não houver slots disponíveis, o sistema oferece a opção de entrar na lista de espera.
   - **Falha na Integração com Calendário**:
-    - Se ocorrer um erro ao sincronizar com o calendário externo, o sistema notifica o solicitante e tenta novamente ou agenda manualmente.
+    - Se ocorrer um erro na sincronização com o calendário externo, o sistema notifica o usuário e prossegue sem a integração.
 - **Dependências**: Integração com Calendário Externo, Sistema de Notificações.
 
 ### Visualizar Status do Agendamento
@@ -178,8 +183,8 @@ cloud "Serviços Externos" {
 - **Descrição**: Permite que o solicitante visualize o status dos seus agendamentos.
 - **Pré-condições**: Usuário autenticado.
 - **Fluxo Principal**:
-  1. O solicitante acessa a seção de agendamentos.
-  2. O sistema exibe a lista de agendamentos e seus status.
+  1. O solicitante acessa a seção "Meus Agendamentos".
+  2. O sistema exibe uma lista dos agendamentos com seus respectivos status.
 - **Fluxos Alternativos**:
   - Nenhum.
 - **Dependências**: Nenhuma.
@@ -189,39 +194,40 @@ cloud "Serviços Externos" {
 - **Descrição**: Permite que o solicitante cancele um agendamento existente.
 - **Pré-condições**: Usuário autenticado e ter um agendamento ativo.
 - **Fluxo Principal**:
-  1. O solicitante seleciona o agendamento a ser cancelado.
+  1. O solicitante seleciona o agendamento que deseja cancelar.
   2. Confirma o cancelamento.
-  3. O sistema remove o agendamento e libera o slot.
-  4. **Enviar Confirmação**: O sistema envia notificação de cancelamento.
+  3. O sistema atualiza o status do agendamento para "Cancelado".
+  4. **Liberar Slot**: O slot de tempo é liberado para outros usuários.
+  5. **Enviar Confirmação**: O sistema envia uma notificação confirmando o cancelamento.
 - **Fluxos Alternativos**:
   - **Falha no Cancelamento**:
-    - Se ocorrer um erro, o sistema notifica o solicitante e tenta novamente ou solicita contato com o suporte.
+    - Se ocorrer um erro ao cancelar, o sistema notifica o usuário e solicita que tente novamente mais tarde.
 - **Dependências**: Sistema de Notificações.
 
 ### Reagendar Agendamento
 
-- **Descrição**: Permite que o solicitante altere a data/hora de um agendamento existente.
+- **Descrição**: Permite que o solicitante altere a data e/ou hora de um agendamento existente.
 - **Pré-condições**: Usuário autenticado e ter um agendamento ativo.
 - **Fluxo Principal**:
-  1. O solicitante seleciona o agendamento a ser reagendado.
-  2. **Verificar Disponibilidade**: O sistema mostra novos slots disponíveis.
+  1. O solicitante seleciona o agendamento que deseja reagendar.
+  2. **Verificar Disponibilidade**: O sistema apresenta novos slots disponíveis.
   3. O solicitante escolhe um novo slot.
-  4. **Atualizar Agendamento**: O sistema atualiza o agendamento.
-  5. **Enviar Confirmação**: O sistema envia confirmação da alteração.
+  4. **Atualizar Agendamento**: O sistema atualiza o agendamento com a nova data/hora.
+  5. **Enviar Confirmação**: O sistema envia uma confirmação do reagendamento.
 - **Fluxos Alternativos**:
-  - Se não houver slots disponíveis, oferecer opção de entrar na lista de espera.
+  - Se não houver slots disponíveis, o sistema oferece a opção de entrar na lista de espera.
 - **Dependências**: Integração com Calendário Externo, Sistema de Notificações.
 
 ### Configurar Notificações
 
-- **Descrição**: Permite que o solicitante configure preferências de notificação.
+- **Descrição**: Permite que o solicitante configure suas preferências de notificações.
 - **Pré-condições**: Usuário autenticado.
 - **Fluxo Principal**:
   1. O solicitante acessa as configurações de notificações.
-  2. Seleciona preferências (e-mail, SMS, push).
-  3. Salva as configurações.
+  2. Ajusta as preferências (e-mail, SMS, push).
+  3. Salva as alterações.
 - **Fluxos Alternativos**:
-  - Se ocorrer um erro ao salvar, o sistema notifica o usuário.
+  - Se ocorrer um erro ao salvar as configurações, o sistema notifica o usuário.
 - **Dependências**: Sistema de Notificações.
 
 ### Fornecer Feedback
@@ -230,68 +236,70 @@ cloud "Serviços Externos" {
 - **Pré-condições**: Usuário autenticado.
 - **Fluxo Principal**:
   1. O solicitante acessa a seção de feedback.
-  2. Preenche o formulário com comentários.
+  2. Preenche o formulário com seus comentários.
   3. Submete o feedback.
 - **Fluxos Alternativos**:
-  - Se ocorrer um erro ao enviar, o sistema notifica o usuário.
+  - Se ocorrer um erro ao enviar o feedback, o sistema notifica o usuário.
 - **Dependências**: Nenhuma.
 
 ### Integração com Calendário Externo
 
-- **Descrição**: Sincroniza agendamentos com o calendário pessoal do solicitante.
-- **Pré-condições**: Usuário autenticado e autorizado para acesso ao calendário.
+- **Descrição**: Permite que o solicitante sincronize seus agendamentos com um calendário externo.
+- **Pré-condições**: Usuário autenticado e ter autorizado o acesso ao calendário externo.
 - **Fluxo Principal**:
-  1. O solicitante autoriza o acesso ao calendário externo.
-  2. O sistema sincroniza os agendamentos.
+  1. O solicitante autoriza a integração com o calendário externo.
+  2. O sistema sincroniza os agendamentos futuros com o calendário.
 - **Fluxos Alternativos**:
   - **Falha na Integração com Calendário**:
-    - Se ocorrer um erro, o sistema notifica o usuário e oferece alternativas.
+    - Se ocorrer um erro, o sistema notifica o usuário e solicita que tente novamente mais tarde.
 - **Dependências**: Serviços de Calendário Externo.
 
 ### Gerenciar Agendamentos (Administrador)
 
-- **Descrição**: Permite que o administrador visualize e gerencie todos os agendamentos.
+- **Descrição**: Permite que o administrador visualize e gerencie todos os agendamentos do sistema.
 - **Pré-condições**: Administrador autenticado.
 - **Fluxo Principal**:
-  1. O administrador acessa a seção de agendamentos.
-  2. Visualiza, edita ou cancela agendamentos conforme necessário.
+  1. O administrador acessa a seção de gerenciamento de agendamentos.
+  2. Visualiza a lista completa de agendamentos.
+  3. Pode editar, cancelar ou aprovar agendamentos conforme necessário.
 - **Fluxos Alternativos**:
   - Nenhum.
 - **Dependências**: Nenhuma.
 
 ### Liberar Slot Diretamente
 
-- **Descrição**: Permite que o administrador libere slots ocupados manualmente.
+- **Descrição**: Permite que o administrador libere slots de tempo diretamente, por exemplo, em caso de cancelamentos.
 - **Pré-condições**: Administrador autenticado.
 - **Fluxo Principal**:
-  1. O administrador seleciona o slot a ser liberado.
-  2. **Liberar Slot**: O sistema libera o slot.
-  3. **Notificar Disponibilidade**: O sistema notifica solicitantes interessados.
-  4. **Integração com Calendário Externo**: Atualiza a disponibilidade no calendário.
+  1. O administrador seleciona o slot que deseja liberar.
+  2. **Liberar Slot**: O sistema torna o slot disponível novamente.
+  3. **Notificar Disponibilidade**: O sistema notifica os usuários interessados.
+  4. **Integração com Calendário Externo**: Atualiza a disponibilidade no calendário externo.
 - **Fluxos Alternativos**:
-  - Se ocorrer um erro na liberação, o sistema notifica o administrador.
+  - Se ocorrer um erro, o sistema notifica o administrador.
 - **Dependências**: Sistema de Notificações, Integração com Calendário Externo.
 
 ### Configurar Sistema
 
-- **Descrição**: Permite que o administrador configure parâmetros do sistema.
+- **Descrição**: Permite que o administrador ajuste as configurações do sistema.
 - **Pré-condições**: Administrador autenticado.
 - **Fluxo Principal**:
   1. O administrador acessa as configurações do sistema.
-  2. Altera parâmetros como níveis de prioridade e políticas de rotação.
-  3. Salva as alterações.
+  2. **Definir Níveis de Prioridade**: Ajusta prioridades para usuários ou agendamentos.
+  3. **Definir Políticas de Rotação**: Configura como os slots são rotacionados ou liberados.
+  4. Salva as alterações.
 - **Fluxos Alternativos**:
-  - Se ocorrer um erro ao salvar, o sistema notifica o administrador.
+  - Se ocorrer um erro ao salvar as configurações, o sistema notifica o administrador.
 - **Dependências**: Nenhuma.
 
 ### Monitorar Sistema
 
-- **Descrição**: Permite que o administrador monitore a performance e receba alertas.
+- **Descrição**: Permite que o administrador monitore o desempenho e a saúde do sistema.
 - **Pré-condições**: Administrador autenticado.
 - **Fluxo Principal**:
-  1. O administrador acessa a seção de monitoramento.
-  2. **Visualizar Logs**: Consulta logs do sistema.
-  3. **Monitorar Performance**: Verifica métricas de desempenho.
+  1. O administrador acessa o painel de monitoramento.
+  2. **Visualizar Logs**: Consulta logs de atividades e erros.
+  3. **Monitorar Performance**: Analisa métricas de desempenho.
   4. **Receber Alertas**: Configura e recebe alertas sobre eventos críticos.
 - **Fluxos Alternativos**:
   - Nenhum.
@@ -299,37 +307,47 @@ cloud "Serviços Externos" {
 
 ### Rotação de Ocupação
 
-- **Descrição**: Processo assíncrono que verifica e rotaciona slots expirados.
+- **Descrição**: Processo assíncrono que verifica e rotaciona slots expirados ou não confirmados.
 - **Pré-condições**: Configuração ativa do processo de rotação.
 - **Fluxo Principal**:
-  1. **Verificar Slots Expirados**: O sistema identifica slots não confirmados ou expirados.
-  2. **Liberar Slot**: Libera os slots identificados.
-  3. **Notificar Disponibilidade**: Notifica solicitantes na lista de espera.
-  4. **Integração com Calendário Externo**: Atualiza os slots no calendário.
+  1. **Verificar Slots Expirados**: O sistema identifica slots que não foram confirmados no tempo limite.
+  2. **Liberar Slot**: O sistema libera esses slots.
+  3. **Notificar Disponibilidade**: Usuários na lista de espera são notificados sobre a disponibilidade.
+  4. **Integração com Calendário Externo**: Atualiza os calendários externos com as mudanças.
 - **Fluxos Alternativos**:
-  - Se ocorrer um erro na liberação ou notificação, o sistema registra nos logs e alerta o administrador.
+  - Se ocorrer um erro no processo, o sistema registra nos logs e notifica o administrador.
 - **Dependências**: Sistema de Notificações, Integração com Calendário Externo.
 
 ## Integração com Sistemas Externos
 
-- **Sistema de Autenticação**: Utilizado para validar as credenciais dos usuários durante o login. Pode ser integrado com serviços como OAuth ou LDAP.
-- **Sistema de Notificações**: Responsável pelo envio de e-mails, SMS ou notificações push aos usuários. Integra-se com serviços como SMTP, APIs de SMS ou serviços de notificações em tempo real.
-- **Calendário Externo**: Permite sincronizar os agendamentos com calendários pessoais dos solicitantes, como Google Calendar ou Microsoft Outlook, facilitando a gestão pessoal dos compromissos.
+- **Sistema de Autenticação**:
+  - Utiliza protocolos seguros (como OAuth 2.0) para autenticar usuários.
+  - Permite login via terceiros (Google, Facebook) se configurado.
+
+- **Sistema de Notificações**:
+  - Envia notificações via e-mail, SMS ou push.
+  - Integra-se com serviços como SMTP, APIs de SMS ou serviços de notificação em tempo real.
+
+- **Calendário Externo**:
+  - Sincroniza agendamentos com calendários pessoais dos usuários.
+  - Utiliza APIs como Google Calendar API ou Microsoft Graph API.
 
 ## Fluxos Alternativos e Exceções
 
 - **Falha na Autenticação**:
-  - O sistema informa ao usuário que as credenciais são inválidas.
-  - Oferece opção para recuperar senha ou tentar novamente.
+  - O sistema exibe uma mensagem de erro ao usuário.
+  - Permite que o usuário recupere a senha ou tente novamente.
+
 - **Falha no Cancelamento**:
-  - Se não for possível cancelar o agendamento (por exemplo, por estar muito próximo do horário agendado), o sistema notifica o usuário.
-  - Sugere contato com o suporte se necessário.
+  - O sistema notifica o usuário sobre o erro.
+  - Registra o erro nos logs para análise posterior.
+
 - **Falha na Integração com Calendário**:
-  - O sistema notifica o usuário sobre o problema.
-  - Oferece opção de tentar novamente ou prosseguir sem a integração.
+  - O sistema notifica o usuário.
+  - Oferece a opção de tentar novamente ou continuar sem sincronização.
+
 - **Adicionar à Lista de Espera**:
-  - Quando não há slots disponíveis, o usuário pode optar por entrar na lista de espera.
-  - O sistema notifica quando um slot estiver disponível.
+  - Quando não há slots disponíveis, o usuário pode optar por ser notificado quando um slot for liberado.
 
 ## Relações entre Casos de Uso
 
@@ -368,7 +386,7 @@ cloud "Serviços Externos" {
     - **Falha no Cancelamento**
   - **Login** estende:
     - **Falha na Autenticação**
-  - Vários casos de uso estendem **Login**, indicando que o usuário precisa estar autenticado para executá-los:
+  - Os casos de uso a seguir estendem **Login**, indicando que o usuário precisa estar autenticado:
     - **Solicitar Agendamento**
     - **Visualizar Status do Agendamento**
     - **Cancelar Agendamento**
@@ -379,29 +397,13 @@ cloud "Serviços Externos" {
 
 ## Notas Adicionais
 
-### Segurança
-
-- **Autenticação e Autorização**: Utiliza-se um sistema de autenticação robusto, possivelmente com suporte a múltiplos fatores de autenticação (MFA). As permissões são definidas por papéis (solicitante e administrador).
-- **Criptografia**: Dados sensíveis são criptografados em trânsito e em repouso.
-- **Controle de Acesso**: Acesso a funcionalidades administrativas restrito apenas a administradores autenticados.
-
-### Backup e Recuperação
-
-- **Backup Automático**: Realização de backups periódicos da base de dados e configurações do sistema.
-- **Recuperação de Desastres**: Planos e procedimentos para restaurar o sistema em caso de falhas críticas ou perda de dados.
-
-### Observabilidade
-
-- **Monitoramento**: O sistema possui métricas de performance, utilização de recursos e saúde geral.
-- **Logs**: Registro detalhado de operações, erros e eventos significativos para auditoria e diagnóstico.
-- **Alertas**: Configuração de alertas para eventos críticos, como falhas de integração, indisponibilidade de serviços externos ou uso excessivo de recursos.
-
-### Escalabilidade
-
-- **Modularidade**: Arquitetura do sistema permite adicionar novas funcionalidades sem impactar as existentes.
-- **Integração**: Suporte para integração com novos sistemas externos conforme necessário.
-
-### Usabilidade
-
-- **Interface Amigável**: Design focado na experiência do usuário, facilitando a navegação e realização de tarefas.
-- **Acessibilidade**: Compatibilidade com tecnologias assistivas e conformidade com padrões de acessibilidade.
+- **Segurança**:
+  - **Autenticação e Autorização**: Uso de autenticação segura, com suporte a múltiplos fatores de autenticação (MFA) se necessário. Controle de acesso baseado em papéis (solicitante, administrador).
+  - **Proteção de Dados**: Criptografia de dados sensíveis em trânsito (HTTPS) e em repouso. Políticas de privacidade e conformidade com regulamentações (LGPD, GDPR).
+- **Backup e Recuperação**:
+  - **Backup Regular**: Backups automáticos da base de dados e configurações.
+  - **Plano de Recuperação de Desastres**: Procedimentos definidos para recuperação rápida em caso de falhas críticas.
+- **Observabilidade**:
+  - **Monitoramento**: Ferramentas para monitorar a saúde do sistema, uso de recursos e desempenho.
+  - **Logs**: Registro detalhado de atividades do sistema para auditoria e resolução de problemas.
+  - **Alertas**: Configuração de alertas para eventos críticos ou anômalos.
